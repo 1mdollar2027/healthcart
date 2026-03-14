@@ -40,7 +40,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./supabase/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -123,6 +123,7 @@ services:
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
       REGION: ap-south-1
       GLOBAL_S3_BUCKET: healthcart
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
     volumes:
       - storage-data:/var/lib/storage
     depends_on:
@@ -148,6 +149,7 @@ services:
       JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       REPLICATION_MODE: RLS
       SECURE_CHANNELS: "true"
+      RLIMIT_NOFILE: 1000000
     depends_on:
       db:
         condition: service_healthy
@@ -160,9 +162,9 @@ services:
     container_name: healthcart-mqtt
     restart: always
     ports:
-      - "1883:1883"    # MQTT
-      - "8083:8083"    # MQTT WebSocket
-      - "18083:18083"  # Dashboard
+      - "1883:1883" # MQTT
+      - "8083:8083" # MQTT WebSocket
+      - "18083:18083" # Dashboard
     environment:
       EMQX_NAME: healthcart
       EMQX_HOST: 0.0.0.0
@@ -205,6 +207,7 @@ volumes:
   storage-data:
   emqx-data:
   certbot-data:
+
 
 networks:
   healthcart:
