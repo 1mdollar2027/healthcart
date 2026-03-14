@@ -126,10 +126,10 @@ async def create_doctor_slot(
 @router.get("/{clinic_id}/appointments")
 async def clinic_appointments(
     clinic_id: str,
-    date: Optional[str] = None,
-    status: Optional[str] = None,
     current_user: Annotated[dict, Depends(require_clinic_admin)],
     sb: Annotated[Client, Depends(get_supabase_admin)],
+    date: Optional[str] = None,
+    status: Optional[str] = None,
 ):
     """Get all appointments for a clinic."""
     q = sb.table("appointments").select(
