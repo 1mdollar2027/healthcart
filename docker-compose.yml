@@ -173,6 +173,24 @@ services:
     networks:
       - healthcart
 
+  # ── Web Dashboards (Next.js) ──
+  web:
+    build:
+      context: ./web_dashboard
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://epochrevive.com/api/v1
+        NEXT_PUBLIC_SUPABASE_URL: https://epochrevive.com
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    container_name: healthcart-web
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - healthcart
+
   # ── Nginx Reverse Proxy ──
   nginx:
     image: nginx:alpine
