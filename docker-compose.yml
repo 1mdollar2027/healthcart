@@ -53,7 +53,7 @@ services:
     container_name: healthcart-studio
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       STUDIO_PG_META_URL: http://pg-meta:8080
       SUPABASE_URL: http://kong:8000
@@ -186,7 +186,7 @@ services:
     container_name: healthcart-web
     restart: always
     ports:
-      - "3000:3000"
+      - "3003:3000"
     depends_on:
       - api
     networks:
