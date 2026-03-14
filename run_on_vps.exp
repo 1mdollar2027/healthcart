@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+
+set timeout -1
+set password "000624282aZ!"
+set target "root@103.190.93.248"
+set commands [lindex $argv 0]
+
+spawn ssh -o StrictHostKeyChecking=no $target $commands
+expect {
+    "*assword:*" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}

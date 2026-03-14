@@ -1,0 +1,37 @@
+# Flutter/Dart
+mobile_flutter/.dart_tool/
+mobile_flutter/.flutter-plugins
+mobile_flutter/.flutter-plugins-dependencies
+mobile_flutter/.pub-cache/
+mobile_flutter/.pub/
+mobile_flutter/build/
+mobile_flutter/ios/Pods/
+mobile_flutter/ios/.symlinks/
+mobile_flutter/ios/Flutter/Flutter.framework
+mobile_flutter/ios/Flutter/Flutter.podspec
+mobile_flutter/android/.gradle
+mobile_flutter/android/local.properties
+mobile_flutter/android/app/build
+
+# Next.js
+web_dashboard/.next/
+web_dashboard/out/
+web_dashboard/build/
+web_dashboard/node_modules/
+web_dashboard/.env.local
+web_dashboard/.env.development.local
+web_dashboard/.env.test.local
+web_dashboard/.env.production.local
+
+# FastAPI / Python
+backend_fastapi/venv/
+backend_fastapi/__pycache__/
+backend_fastapi/*.pyc
+backend_fastapi/.pytest_cache/
+backend_fastapi/.coverage
+
+# General / Environment
+.env
+.DS_Store
+deploy.tar.gz
+*.log

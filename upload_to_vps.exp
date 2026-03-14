@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+
+set timeout -1
+set password "000624282aZ!"
+set target "root@103.190.93.248"
+set src_dir [lindex $argv 0]
+
+spawn scp -o StrictHostKeyChecking=no -r $src_dir $target:/root/HealthCart
+expect {
+    "*assword:*" {
+        send "$password\r"
+        exp_continue
+    }
+    eof
+}

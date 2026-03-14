@@ -1,0 +1,211 @@
+# ============================================
+# HealthCart Telemedicine Platform
+# Docker Compose – Production Stack
+# ============================================
+version: "3.9"
+
+services:
+  # ── FastAPI Backend ──
+  backend:
+    build:
+      context: ./backend_fastapi
+      dockerfile: Dockerfile
+    container_name: healthcart-api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - healthcart
+    volumes:
+      - ./backend_fastapi:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+  # ── PostgreSQL 16 + TimescaleDB ──
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: healthcart-db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-healthcart_secure_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-healthcart}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healthcart
+
+  # ── Supabase Studio (optional – admin UI) ──
+  supabase-studio:
+    image: supabase/studio:latest
+    container_name: healthcart-studio
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      STUDIO_PG_META_URL: http://pg-meta:8080
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_REST_URL: http://rest:3000
+    depends_on:
+      - db
+    networks:
+      - healthcart
+
+  # ── Supabase Auth (GoTrue) ──
+  auth:
+    image: supabase/gotrue:v2.157.1
+    container_name: healthcart-auth
+    restart: always
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-healthcart_secure_2026}@db:5432/healthcart?sslmode=disable
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "true"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - healthcart
+
+  # ── Supabase REST (PostgREST) ──
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: healthcart-rest
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-healthcart_secure_2026}@db:5432/healthcart
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - healthcart
+
+  # ── Supabase Storage ──
+  storage:
+    image: supabase/storage-api:v1.10.1
+    container_name: healthcart-storage
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      ANON_KEY: ${SUPABASE_ANON_KEY}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-healthcart_secure_2026}@db:5432/healthcart
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      REGION: ap-south-1
+      GLOBAL_S3_BUCKET: healthcart
+    volumes:
+      - storage-data:/var/lib/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - healthcart
+
+  # ── Supabase Realtime ──
+  realtime:
+    image: supabase/realtime:v2.30.34
+    container_name: healthcart-realtime
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-healthcart_secure_2026}
+      DB_NAME: healthcart
+      PORT: 4000
+      JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      REPLICATION_MODE: RLS
+      SECURE_CHANNELS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - healthcart
+
+  # ── EMQX MQTT Broker (IoT) ──
+  emqx:
+    image: emqx/emqx:5.8.0
+    container_name: healthcart-mqtt
+    restart: always
+    ports:
+      - "1883:1883"    # MQTT
+      - "8083:8083"    # MQTT WebSocket
+      - "18083:18083"  # Dashboard
+    environment:
+      EMQX_NAME: healthcart
+      EMQX_HOST: 0.0.0.0
+    volumes:
+      - emqx-data:/opt/emqx/data
+    networks:
+      - healthcart
+
+  # ── Nginx Reverse Proxy ──
+  nginx:
+    image: nginx:alpine
+    container_name: healthcart-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl
+      - certbot-data:/var/www/certbot
+    depends_on:
+      - backend
+      - rest
+      - auth
+      - storage
+    networks:
+      - healthcart
+
+  # ── Certbot (SSL) ──
+  certbot:
+    image: certbot/certbot
+    container_name: healthcart-certbot
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - certbot-data:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  pgdata:
+  storage-data:
+  emqx-data:
+  certbot-data:
+
+networks:
+  healthcart:
+    driver: bridge
