@@ -150,6 +150,7 @@ services:
       REPLICATION_MODE: RLS
       SECURE_CHANNELS: "true"
       RLIMIT_NOFILE: 1000000
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     depends_on:
       db:
         condition: service_healthy
@@ -208,6 +209,8 @@ services:
       - rest
       - auth
       - storage
+      - realtime
+      - web
     networks:
       - healthcart
 
